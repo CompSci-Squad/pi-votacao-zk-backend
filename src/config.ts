@@ -34,6 +34,26 @@ export const config = {
     return required("RELAYER_PRIVATE_KEY");
   },
 
+  /**
+   * Private key for admin on-chain operations (addCandidate, openElection, …).
+   * Falls back to RELAYER_PRIVATE_KEY when ADMIN_PRIVATE_KEY is not set.
+   * In local dev both keys are usually the same anvil account.
+   */
+  get adminPrivateKey(): string {
+    const v = process.env.ADMIN_PRIVATE_KEY;
+    if (v && v !== "0x...") return v;
+    return required("RELAYER_PRIVATE_KEY");
+  },
+
+  /**
+   * Shared secret for HTTP admin write operations.
+   * Set ADMIN_KEY in .env.  If unset, all admin write endpoints return 503.
+   * In local dev you can use any non-empty string.
+   */
+  get adminKey(): string | undefined {
+    return process.env.ADMIN_KEY || undefined;
+  },
+
   rateLimitCount: parseInt(optional("RATE_LIMIT_COUNT", "10"), 10),
   rateWindowMs: parseInt(optional("RATE_WINDOW_MS", "60000"), 10),
 

@@ -85,9 +85,18 @@ export const VOTING_CONTRACT_ABI = [
   // ── Voting ────────────────────────────────────────────────────────────────
   "function castVote(uint256 raceId, uint256[6] pubSignals, uint256[24] proof)",
 
-  // ── Admin (read-only helpers exposed via backend) ─────────────────────────
+  // ── Admin read helpers ────────────────────────────────────────────────────
   "function openElection()",
   "function closeElection()",
+
+  // ── Admin write functions ─────────────────────────────────────────────────
+  "function addCandidateToRace(uint256 raceId, string name, string party, uint256 number)",
+  "function addRace(string name) returns (uint256 raceId)",
+  "function setRace0Name(string name)",
+  "function setRaceMaxPicks(uint256 raceId, uint8 maxPicks)",
+  "function registerVoterHashes(uint256[] hashes)",
+  "function setMerkleRoot(uint256 root)",
+  "function transferAdmin(address newAdmin)",
 
   // ── Events ────────────────────────────────────────────────────────────────
   "event ElectionCreated(string name, uint256 electionId)",

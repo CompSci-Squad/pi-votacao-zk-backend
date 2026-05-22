@@ -104,6 +104,8 @@ export interface RelayParams {
   proof: bigint[]; // 24 elements
   voterToken?: string; // x-voter-token header (optional rate-limit key)
   clientIp?: string;
+  /** When true, skip the rate-limit check (used by dry-run / verify-proof). */
+  skipRateLimit?: boolean;
 }
 
 /**
@@ -174,13 +176,15 @@ export async function validateRelayRequest(
   }
 
   // 7. Rate limit
-  const key = params.voterToken ?? params.clientIp ?? "unknown";
-  if (!checkRateLimit(key)) {
-    throw new (await import("../lib/errors")).AppError(
-      429,
-      "Rate limit exceeded",
-      "RATE_LIMITED",
-    );
+  if (!params.skipRateLimit) {
+    const key = params.voterToken ?? params.clientIp ?? "unknown";
+    if (!checkRateLimit(key)) {
+      throw new (await import("../lib/errors")).AppError(
+        429,
+        "Rate limit exceeded",
+        "RATE_LIMITED",
+      );
+    }
   }
 }
 
