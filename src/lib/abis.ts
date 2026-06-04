@@ -111,9 +111,16 @@ export const VOTING_CONTRACT_ABI = [
 
   // ── Custom errors ─────────────────────────────────────────────────────────
   "error NotAdmin()",
-  "error ElectionNotOpen()",
+  "error ElectionAlreadyExists()",
   "error ElectionNotPending()",
+  "error ElectionNotOpen()",
   "error ElectionNotFinished()",
+  "error NoVoterHashesRegistered()",
+  "error TooManyVoters(uint256 provided, uint256 maximum)",
+  "error VoterHashesAlreadyRegistered()",
+  "error InvalidVoterHash(uint256 index)",
+  "error CandidateNumberAlreadyUsed(uint256 number)",
+  "error InvalidMaxPicks(uint8 maxPicks)",
   "error InvalidMerkleRoot(uint256 provided, uint256 expected)",
   "error InvalidElectionId(uint256 provided, uint256 expected)",
   "error InvalidRaceId(uint256 provided)",

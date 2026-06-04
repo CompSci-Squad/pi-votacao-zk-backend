@@ -1,0 +1,436 @@
+{
+  "info": {
+    "name": "pi-votacao ZK Backend",
+    "_postman_id": "pi-votacao-zk-backend-v1",
+    "description": "Complete API collection for the pi-votacao ZK voting backend.\n\nBase URL: http://localhost:3000\n\nAdmin write endpoints require the header:\n  x-admin-key: {{adminKey}}\n\nCollection variables:\n  - baseUrl  → http://localhost:3000\n  - adminKey → dev-admin-secret\n  - electionAddr → set automatically by the 'Create Election' request\n  - raceId   → 0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:3000", "type": "string" },
+    { "key": "adminKey",     "value": "dev-admin-secret",      "type": "string" },
+    { "key": "electionAddr", "value": "",                      "type": "string" },
+    { "key": "raceId",       "value": "0",                     "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Elections",
+      "item": [
+        {
+          "name": "GET /elections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/elections", "host": ["{{baseUrl}}"], "path": ["elections"] }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /elections — Create Election",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.address) {",
+                  "  pm.collectionVariables.set('electionAddr', json.address);",
+                  "  console.log('electionAddr set to', json.address);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eleição Municipal 2026\",\n  \"description\": \"Prefeitura e Câmara Municipal\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/elections", "host": ["{{baseUrl}}"], "path": ["elections"] }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /elections/:addr — Open Voting",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"OPEN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /elections/:addr — Finish Voting",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"FINISHED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Races",
+      "item": [
+        {
+          "name": "GET /elections/:addr/races",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /elections/:addr/races — Add Race",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vereador\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/races/:raceId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/{{raceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "{{raceId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /elections/:addr/races/:raceId — Set Name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prefeito\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/0",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "0"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /elections/:addr/races/:raceId — Set maxPicks",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxPicks\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Candidates",
+      "item": [
+        {
+          "name": "GET /elections/:addr/races/:raceId/candidates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/{{raceId}}/candidates",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "{{raceId}}", "candidates"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /elections/:addr/races/:raceId/candidates — Add Candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Oliveira\",\n  \"party\": \"PT\",\n  \"number\": 13\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/{{raceId}}/candidates",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "{{raceId}}", "candidates"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /elections/:addr/races/:raceId/candidates — Add Candidate 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bruno Silva\",\n  \"party\": \"PSD\",\n  \"number\": 45\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/{{raceId}}/candidates",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "{{raceId}}", "candidates"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/races/:raceId/candidates/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/races/{{raceId}}/candidates/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "races", "{{raceId}}", "candidates", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Voters",
+      "item": [
+        {
+          "name": "GET /elections/:addr/voters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/voters",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "voters"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /elections/:addr/voters — Register Voters",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-admin-key",  "value": "{{adminKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hashes\": [\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\"],\n  \"merkleRoot\": \"12345678901234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/voters",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "voters"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/voters/:commitment — Merkle Proof",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/voters/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "voters", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Votes (ZK Relay)",
+      "item": [
+        {
+          "name": "POST /elections/:addr/votes — Cast Vote (MockVerifier)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raceId\": 0,\n  \"pubSignals\": [\n    \"12345678901234567890\",\n    \"9876543210987654321\",\n    \"1\",\n    \"1\",\n    \"0\",\n    \"0\"\n  ],\n  \"proof\": [\n    \"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\n    \"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\n    \"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\",\"0\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "votes"]
+            },
+            "description": "pubSignals order:\n[0] merkle_root — must match voterMerkleRoot on-chain\n[1] nullifier_hash — Poseidon(voter_id, election_id, race_id, pick_index)\n[2] candidate_id — 0=blank, 999=null/spoiled, 1..N=candidate\n[3] election_id — must match currentElectionId on-chain\n[4] race_id — must match raceId param\n[5] pick_index — 0..maxPicks-1\n\nWith MockVerifier any 24-element proof passes. With the real PlonkVerifier, use pi-votacao-zk-circuits to generate a valid proof."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Results & Audit",
+      "item": [
+        {
+          "name": "GET /elections/:addr/results — Boletim de Urna",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "results"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/audit/zeresima",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/audit/zeresima",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "audit", "zeresima"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/audit/bu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/audit/bu",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "audit", "bu"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/audit/rdv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/audit/rdv",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "audit", "rdv"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /elections/:addr/audit/pending",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/elections/{{electionAddr}}/audit/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["elections", "{{electionAddr}}", "audit", "pending"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

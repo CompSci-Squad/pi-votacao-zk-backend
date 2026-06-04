@@ -30,14 +30,24 @@ import { toSafeJson } from "../lib/serialize";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
-const decimalStr = z
+/**
+ * Accepts a field element as either:
+ *   - a decimal string  ("1234567890")
+ *   - a 0x-prefixed hex string ("0x04a9...")
+ * and normalises to a decimal string for on-chain use.
+ */
+const fieldElement = z
   .string()
-  .regex(/^\d+$/, "Must be a non-negative decimal integer string");
+  .regex(
+    /^(0x[0-9a-fA-F]+|\d+)$/,
+    "Must be a decimal or 0x-prefixed hex integer string",
+  )
+  .transform((s) => BigInt(s).toString(10));
 
 const voteBodySchema = z.object({
   raceId: z.number().int().min(0),
-  pubSignals: z.array(decimalStr).length(6),
-  proof: z.array(decimalStr).length(24),
+  pubSignals: z.array(fieldElement).length(6),
+  proof: z.array(fieldElement).length(24),
 });
 
 // ── Plugin ────────────────────────────────────────────────────────────────────

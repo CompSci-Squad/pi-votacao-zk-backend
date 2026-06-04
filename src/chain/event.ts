@@ -99,6 +99,8 @@ export async function readEventState(addr: string): Promise<EventState> {
   ]);
 
   const stateNum = Number(stateRaw);
+  // race 0 is invisible until named — don't count it in the visible total
+  const visibleRacesCount = race0Name === "" ? racesCount - 1n : racesCount;
   return {
     address: addr,
     electionName,
@@ -108,7 +110,7 @@ export async function readEventState(addr: string): Promise<EventState> {
     stateLabel: stateLabel(stateNum),
     currentElectionId,
     voterMerkleRoot,
-    racesCount,
+    racesCount: visibleRacesCount,
     race0Name,
   };
 }
@@ -127,6 +129,8 @@ export async function readRaces(addr: string): Promise<RaceInfo[]> {
       c.getRaceMaxPicks(raceId) as Promise<bigint>,
       c.getCandidatesByRace(raceId) as Promise<Candidate[]>,
     ]);
+    // race 0 exists on every fresh contract but is not visible until named
+    if (raceId === 0 && name === "") continue;
     races.push({
       raceId,
       name,

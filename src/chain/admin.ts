@@ -15,17 +15,39 @@
  *     authority (used for setup / state transitions).
  */
 
-import { ethers } from "ethers";
+import { ethers, NonceManager } from "ethers";
 import { VOTING_CONTRACT_ABI, VOTING_FACTORY_ABI } from "../lib/abis";
 import { getProvider } from "./provider";
 import { config } from "../config";
-import { notConfigured } from "../lib/errors";
+import { notConfigured, AppError } from "../lib/errors";
+import { revertToAppError } from "../lib/contractErrors";
 
 // ── Signer ────────────────────────────────────────────────────────────────────
 
-/** Returns the admin signer wallet. */
-export function getAdminWallet(): ethers.Wallet {
-  return new ethers.Wallet(config.adminPrivateKey, getProvider());
+let _adminWallet: NonceManager | null = null;
+
+/**
+ * Returns the shared admin signer singleton, wrapped in NonceManager.
+ *
+ * NonceManager keeps a local pending nonce counter and increments it
+ * atomically, so concurrent requests never get the same nonce and
+ * NONCE_EXPIRED errors are eliminated under concurrent load.
+ */
+export function getAdminWallet(): NonceManager {
+  if (!_adminWallet) {
+    const wallet = new ethers.Wallet(config.adminPrivateKey, getProvider());
+    _adminWallet = new NonceManager(wallet);
+  }
+  return _adminWallet;
+}
+
+/** Test helper — inject a signer without touching process.env. */
+export function setAdminWallet(w: ethers.Signer): void {
+  _adminWallet = w instanceof NonceManager ? w : new NonceManager(w);
+}
+
+export function _resetAdminWalletForTests(): void {
+  _adminWallet = null;
 }
 
 function signedFactory(): ethers.Contract {
@@ -45,6 +67,11 @@ function signedContract(addr: string): ethers.Contract {
   );
 }
 
+// Shared interface for decoding custom error selectors from raw revert data.
+const CONTRACT_IFACE = new ethers.Interface(
+  VOTING_CONTRACT_ABI as unknown as string[],
+);
+
 interface TxReceipt {
   txHash: string;
   blockNumber: number;
@@ -53,10 +80,67 @@ interface TxReceipt {
 async function send(
   tx: Promise<ethers.ContractTransactionResponse>,
 ): Promise<TxReceipt> {
-  const response = await tx;
-  const receipt = await response.wait();
+  let response: ethers.ContractTransactionResponse;
+  try {
+    response = await tx;
+  } catch (err) {
+    throw isNonceError(err) ? nonceAppError(err) : revertToAppError(err);
+  }
+  let receipt: ethers.TransactionReceipt | null;
+  try {
+    receipt = await response.wait();
+  } catch (err) {
+    // ethers v6: tx.wait() may yield data=null on some nodes (e.g. anvil) because
+    // the eth_call replay at a specific block returns no revert payload.
+    // Re-simulate the same call via provider.call() to get the raw selector,
+    // then decode it manually using the contract ABI interface.
+    const callErr = err as { code?: string; data?: unknown };
+    if (callErr?.code === "CALL_EXCEPTION" && callErr?.data === null) {
+      try {
+        await response.provider.call({
+          to: response.to ?? undefined,
+          from: response.from,
+          data: response.data,
+          value: response.value,
+        });
+      } catch (simErr) {
+        const simCallErr = simErr as { code?: string; data?: string };
+        if (simCallErr?.code === "CALL_EXCEPTION" && simCallErr?.data) {
+          const parsed = CONTRACT_IFACE.parseError(simCallErr.data);
+          if (parsed) {
+            // Synthesise an error object that revertToAppError can decode.
+            throw revertToAppError(
+              Object.assign(new Error(parsed.name), {
+                code: "CALL_EXCEPTION",
+                revert: { name: parsed.name, args: parsed.args },
+              }),
+            );
+          }
+        }
+        throw revertToAppError(simErr);
+      }
+    }
+    throw revertToAppError(err);
+  }
   if (!receipt) throw new Error("Transaction receipt is null");
   return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
+}
+
+function isNonceError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  return code === "NONCE_EXPIRED" || code === "REPLACEMENT_UNDERPRICED";
+}
+
+function nonceAppError(err: unknown): AppError {
+  // Nonce desync — reset the NonceManager so the next request re-fetches
+  // the on-chain nonce and recovers automatically.
+  _adminWallet?.reset();
+  const msg = (err as Error)?.message ?? "nonce error";
+  return new AppError(
+    503,
+    `Transaction nonce conflict — please retry. (${msg})`,
+    "NONCE_CONFLICT",
+  );
 }
 
 // ── Factory operations ────────────────────────────────────────────────────────

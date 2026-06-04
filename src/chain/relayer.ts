@@ -5,6 +5,7 @@ import { VOTING_CONTRACT_ABI } from "../lib/abis";
 import { getProvider } from "./provider";
 import { config } from "../config";
 import { badRequest, conflict, internal } from "../lib/errors";
+import { revertToAppError } from "../lib/contractErrors";
 import { knownEventAddresses } from "./factory";
 import { readEventState, isNullifierUsed, ElectionState } from "./event";
 
@@ -211,16 +212,14 @@ export async function submitRelay(
       proof as Parameters<typeof contract.castVote>[2],
     ) as ethers.TransactionResponse;
   } catch (err: unknown) {
-    throw internal(`Failed to submit castVote: ${(err as Error).message}`);
+    throw revertToAppError(err);
   }
 
   let receipt: ethers.TransactionReceipt | null;
   try {
     receipt = await tx.wait();
   } catch (err: unknown) {
-    // Transaction reverted on-chain — decode the reason if possible
-    const msg = (err as Error).message ?? "Transaction reverted";
-    throw badRequest(`castVote reverted: ${msg}`, "PROOF_REJECTED");
+    throw revertToAppError(err);
   }
 
   if (!receipt || receipt.status === 0) {

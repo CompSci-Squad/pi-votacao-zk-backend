@@ -1,0 +1,8 @@
+# Paths excluded from the Docker build context for the backend image.
+
+node_modules/
+dist/
+dist-test/
+pending-logs/
+.env
+*.log
