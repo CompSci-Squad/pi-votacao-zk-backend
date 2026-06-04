@@ -6,13 +6,7 @@ import { config } from "./config";
 import { AppError } from "./lib/errors";
 import { startPendingLog, stopPendingLog } from "./audit/pendingLog";
 
-// ── Legacy routes (/events prefix, kept for backwards compatibility) ──────────
-import publicRoutes from "./routes/public";
-import voterRoutes from "./routes/voter";
-import relayRoutes from "./routes/relay";
-import adminRoutes from "./routes/admin";
-
-// ── New CRUD routes (/elections prefix) ───────────────────────────────────────
+// ── CRUD routes (/elections prefix) ───────────────────────────────────────────
 import electionsRoutes from "./routes/elections";
 import racesRoutes from "./routes/races";
 import candidatesRoutes from "./routes/candidates";
@@ -52,6 +46,11 @@ export async function buildServer() {
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   });
 
+  // ── Health check ──────────────────────────────────────────────────────────
+  fastify.get("/health", async (_req, reply) => {
+    reply.send({ ok: true, ts: Date.now() });
+  });
+
   // ── CRUD API  /elections/* ────────────────────────────────────────────────
   await fastify.register(electionsRoutes, { prefix: "/elections" });
   await fastify.register(racesRoutes,     { prefix: "/elections" });
@@ -59,12 +58,6 @@ export async function buildServer() {
   await fastify.register(votersRoutes,    { prefix: "/elections" });
   await fastify.register(votesRoutes,     { prefix: "/elections" });
   await fastify.register(auditRoutes,     { prefix: "/elections" });
-
-  // ── Legacy routes  /events/* (backwards compat) ───────────────────────────
-  await fastify.register(publicRoutes);
-  await fastify.register(voterRoutes);
-  await fastify.register(relayRoutes);
-  await fastify.register(adminRoutes);
 
   return fastify;
 }
