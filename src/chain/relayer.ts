@@ -1,28 +1,35 @@
 "use strict";
 
-import { ethers } from "ethers";
+import { ethers, NonceManager } from "ethers";
 import { VOTING_CONTRACT_ABI } from "../lib/abis";
 import { getProvider } from "./provider";
 import { config } from "../config";
-import { badRequest, conflict, internal } from "../lib/errors";
+import { badRequest, conflict, internal, serviceUnavailable, AppError } from "../lib/errors";
 import { revertToAppError } from "../lib/contractErrors";
 import { knownEventAddresses } from "./factory";
 import { readEventState, isNullifierUsed, ElectionState } from "./event";
 
 // ── Relayer wallet singleton ──────────────────────────────────────────────────
 
-let _wallet: ethers.Wallet | null = null;
+let _wallet: NonceManager | null = null;
 
-export function getRelayerWallet(): ethers.Wallet {
+/**
+ * Returns the shared relayer signer singleton, wrapped in NonceManager.
+ *
+ * NonceManager keeps a local pending nonce counter and increments it
+ * atomically, so concurrent castVote requests never get the same nonce.
+ */
+export function getRelayerWallet(): NonceManager {
   if (!_wallet) {
-    _wallet = new ethers.Wallet(config.relayerPrivateKey, getProvider());
+    const baseWallet = new ethers.Wallet(config.relayerPrivateKey, getProvider());
+    _wallet = new NonceManager(baseWallet);
   }
   return _wallet;
 }
 
 /** Test helper — inject a pre-funded wallet without touching process.env. */
-export function setRelayerWallet(w: ethers.Wallet): void {
-  _wallet = w;
+export function setRelayerWallet(w: ethers.Signer): void {
+  _wallet = w instanceof NonceManager ? w : new NonceManager(w);
 }
 
 export function _resetRelayerForTests(): void {
@@ -91,7 +98,7 @@ export const defaultRelayGuardsDeps: RelayGuardsDeps = {
   },
   async getRacesCount(addr) {
     const s = await readEventState(addr);
-    return s.racesCount;
+    return s.rawRacesCount;
   },
   async checkNullifierUsed(addr, raceId, nullifier) {
     return isNullifierUsed(addr, raceId, nullifier);
@@ -212,7 +219,7 @@ export async function submitRelay(
       proof as Parameters<typeof contract.castVote>[2],
     ) as ethers.TransactionResponse;
   } catch (err: unknown) {
-    throw revertToAppError(err);
+    throw isRelayerNonceError(err) ? relayerNonceAppError(err) : revertToAppError(err);
   }
 
   let receipt: ethers.TransactionReceipt | null;
@@ -227,4 +234,28 @@ export async function submitRelay(
   }
 
   return receipt.hash;
+}
+
+// ── Nonce error helpers (relayer) ─────────────────────────────────────────────
+
+function isRelayerNonceError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message;
+  return (
+    msg.includes("nonce") ||
+    msg.includes("NONCE_EXPIRED") ||
+    msg.includes("replacement fee too low") ||
+    msg.includes("already known")
+  );
+}
+
+function relayerNonceAppError(err: unknown): AppError {
+  // Reset the NonceManager so it re-fetches the on-chain nonce on next call.
+  if (_wallet) {
+    void _wallet.reset();
+  }
+  return serviceUnavailable(
+    "Nonce conflict — please retry",
+    "NONCE_CONFLICT",
+  );
 }

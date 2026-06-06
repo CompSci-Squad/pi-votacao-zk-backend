@@ -78,14 +78,23 @@ interface TxReceipt {
 }
 
 async function send(
-  tx: Promise<ethers.ContractTransactionResponse>,
+  txFactory: () => Promise<ethers.ContractTransactionResponse>,
 ): Promise<TxReceipt> {
-  let response: ethers.ContractTransactionResponse;
-  try {
-    response = await tx;
-  } catch (err) {
-    throw isNonceError(err) ? nonceAppError(err) : revertToAppError(err);
+  let response: ethers.ContractTransactionResponse | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await txFactory();
+      break;
+    } catch (err) {
+      if (isNonceError(err) && attempt === 0) {
+        // Stale nonce — reset to re-fetch from chain and retry once.
+        await _adminWallet?.reset();
+        continue;
+      }
+      throw isNonceError(err) ? nonceAppError(err) : revertToAppError(err);
+    }
   }
+  if (!response) throw new Error("Transaction failed after retry");
   let receipt: ethers.TransactionReceipt | null;
   try {
     receipt = await response.wait();
@@ -159,13 +168,26 @@ export async function deployElection(
   description: string,
 ): Promise<DeployResult> {
   const factory = signedFactory();
-  const response = await (factory.createEvent as (
-    n: string,
-    d: string,
-    o: object,
-  ) => Promise<ethers.ContractTransactionResponse>)(name, description, {
-    gasLimit: 3_000_000,
-  });
+  let response: ethers.ContractTransactionResponse | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await (factory.createEvent as (
+        n: string,
+        d: string,
+        o: object,
+      ) => Promise<ethers.ContractTransactionResponse>)(name, description, {
+        gasLimit: 3_000_000,
+      });
+      break;
+    } catch (err) {
+      if (isNonceError(err) && attempt === 0) {
+        await _adminWallet?.reset();
+        continue;
+      }
+      throw isNonceError(err) ? nonceAppError(err) : revertToAppError(err);
+    }
+  }
+  if (!response) throw new Error("deployElection failed after retry");
   const receipt = await response.wait();
   if (!receipt) throw new Error("Transaction receipt is null");
 
@@ -208,7 +230,7 @@ export function addCandidateToRace(
   candidateNumber: bigint,
 ): Promise<TxReceipt> {
   return send(
-    signedContract(addr).addCandidateToRace(
+    () => signedContract(addr).addCandidateToRace(
       raceId,
       name,
       party,
@@ -223,11 +245,24 @@ export async function addRace(
   addr: string,
   name: string,
 ): Promise<TxReceipt & { raceId: number }> {
-  const response = await (
-    signedContract(addr).addRace(name, {
-      gasLimit: 200_000,
-    }) as Promise<ethers.ContractTransactionResponse>
-  );
+  let response: ethers.ContractTransactionResponse | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await (
+        signedContract(addr).addRace(name, {
+          gasLimit: 200_000,
+        }) as Promise<ethers.ContractTransactionResponse>
+      );
+      break;
+    } catch (err) {
+      if (isNonceError(err) && attempt === 0) {
+        await _adminWallet?.reset();
+        continue;
+      }
+      throw isNonceError(err) ? nonceAppError(err) : revertToAppError(err);
+    }
+  }
+  if (!response) throw new Error("addRace failed after retry");
   const receipt = await response.wait();
   if (!receipt) throw new Error("Transaction receipt is null");
 
@@ -254,7 +289,7 @@ export async function addRace(
 /** Set the display name of race 0 (may only be called while PENDING). */
 export function setRace0Name(addr: string, name: string): Promise<TxReceipt> {
   return send(
-    signedContract(addr).setRace0Name(name, {
+    () => signedContract(addr).setRace0Name(name, {
       gasLimit: 100_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );
@@ -267,7 +302,7 @@ export function setRaceMaxPicks(
   maxPicks: number,
 ): Promise<TxReceipt> {
   return send(
-    signedContract(addr).setRaceMaxPicks(raceId, maxPicks, {
+    () => signedContract(addr).setRaceMaxPicks(raceId, maxPicks, {
       gasLimit: 100_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );
@@ -279,7 +314,7 @@ export function registerVoterHashes(
   hashes: bigint[],
 ): Promise<TxReceipt> {
   return send(
-    signedContract(addr).registerVoterHashes(hashes, {
+    () => signedContract(addr).registerVoterHashes(hashes, {
       gasLimit: 500_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );
@@ -291,7 +326,7 @@ export function setMerkleRoot(
   root: bigint,
 ): Promise<TxReceipt> {
   return send(
-    signedContract(addr).setMerkleRoot(root, {
+    () => signedContract(addr).setMerkleRoot(root, {
       gasLimit: 100_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );
@@ -300,7 +335,7 @@ export function setMerkleRoot(
 /** Transition PENDING → OPEN. */
 export function openElection(addr: string): Promise<TxReceipt> {
   return send(
-    signedContract(addr).openElection({
+    () => signedContract(addr).openElection({
       gasLimit: 100_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );
@@ -309,7 +344,7 @@ export function openElection(addr: string): Promise<TxReceipt> {
 /** Transition OPEN → FINISHED. */
 export function closeElection(addr: string): Promise<TxReceipt> {
   return send(
-    signedContract(addr).closeElection({
+    () => signedContract(addr).closeElection({
       gasLimit: 100_000,
     }) as Promise<ethers.ContractTransactionResponse>,
   );

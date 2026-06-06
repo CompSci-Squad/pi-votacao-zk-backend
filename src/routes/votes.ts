@@ -17,6 +17,7 @@ import { z } from "zod";
 import { validateRelayRequest, submitRelay } from "../chain/relayer";
 import {
   logReceived,
+  markFailed,
   markSubmitted,
   isNullifierPending,
   currentEpochEntries,
@@ -122,7 +123,14 @@ export default async function votesRoutes(fastify: FastifyInstance) {
       const entry = logReceived(addr, pubSignals, proof);
 
       // guard 11 — submit on-chain
-      const txHash = await submitRelay(addr, raceId, pubSignals, proof);
+      let txHash: string;
+      try {
+        txHash = await submitRelay(addr, raceId, pubSignals, proof);
+      } catch (err) {
+        // Remove from pending log so the voter can retry
+        markFailed(entry);
+        throw err;
+      }
       markSubmitted(entry, txHash);
 
       reply.status(202).send({ txHash, nullifier: nullifierStr });
@@ -194,7 +202,8 @@ export default async function votesRoutes(fastify: FastifyInstance) {
         return;
       }
 
-      throw notFound(`No vote found for nullifier ${nullifier}`);
+      // Not found in pending log or on-chain
+      reply.send(toSafeJson({ nullifier, status: "not_found" }));
     },
   );
 

@@ -42,7 +42,10 @@ export interface EventState {
   stateLabel: string;
   currentElectionId: bigint;
   voterMerkleRoot: bigint;
+  /** Visible race count (race 0 excluded when unnamed). Used for display. */
   racesCount: bigint;
+  /** Raw on-chain racesCount(). Used for validation (includes race 0). */
+  rawRacesCount: bigint;
   race0Name: string;
 }
 
@@ -111,6 +114,7 @@ export async function readEventState(addr: string): Promise<EventState> {
     currentElectionId,
     voterMerkleRoot,
     racesCount: visibleRacesCount,
+    rawRacesCount: racesCount,
     race0Name,
   };
 }

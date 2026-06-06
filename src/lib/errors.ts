@@ -42,3 +42,7 @@ export const internal = (msg: string) => new AppError(500, msg, "INTERNAL");
 /** 503 Service Unavailable — required env var not configured */
 export const notConfigured = (feature: string) =>
   new AppError(503, `${feature} is not configured`, "NOT_CONFIGURED");
+
+/** 503 Service Unavailable — generic */
+export const serviceUnavailable = (msg: string, code = "SERVICE_UNAVAILABLE") =>
+  new AppError(503, msg, code);

@@ -136,6 +136,15 @@ export function markSubmitted(entry: PendingEntry, txHash: string): void {
 }
 
 /**
+ * Remove a previously logged entry when the relay submission fails.
+ * This allows the voter to retry without being blocked by the pending check.
+ */
+export function markFailed(entry: PendingEntry): void {
+  const idx = _current.indexOf(entry);
+  if (idx !== -1) _current.splice(idx, 1);
+}
+
+/**
  * Check whether the given nullifier already appears in the current epoch's
  * in-memory buffer (the "pending" state — received but tx not yet mined).
  * Used as a cheap pre-check in the relay guard to avoid duplicate submissions.

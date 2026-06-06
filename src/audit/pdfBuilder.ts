@@ -53,36 +53,41 @@ function header(
   title: string,
   subtitle: string,
 ): void {
-  doc
-    .rect(0, 0, PAGE_WIDTH, 80)
-    .fill(BRAND_BLUE);
+  const HEADER_H = 84;
+  doc.rect(0, 0, PAGE_WIDTH, HEADER_H).fill(BRAND_BLUE);
 
   doc
     .fillColor("white")
-    .fontSize(18)
+    .fontSize(20)
     .font("Helvetica-Bold")
-    .text(title, MARGIN, 20, { width: PAGE_WIDTH - MARGIN * 2 });
+    .text(title, MARGIN, 22, { width: PAGE_WIDTH - MARGIN * 2, lineBreak: false });
 
   doc
-    .fontSize(10)
+    .fontSize(9)
     .font("Helvetica")
-    .text(subtitle, MARGIN, 44, { width: PAGE_WIDTH - MARGIN * 2 });
+    .fillColor("#c8d8e8")
+    .text(subtitle, MARGIN, 50, { width: PAGE_WIDTH - MARGIN * 2, lineBreak: false });
 
-  doc.moveDown(3);
+  // Advance cursor below header
+  doc.y = HEADER_H + 14;
+  doc.fillColor(TEXT_DARK);
 }
 
 function sectionTitle(doc: PDFKit.PDFDocument, text: string): void {
-  doc
-    .moveDown(0.5)
-    .rect(MARGIN - 4, doc.y, PAGE_WIDTH - MARGIN * 2 + 8, 18)
-    .fill(BRAND_TEAL);
+  doc.moveDown(0.8);
+  const y = doc.y;
+  const rectH = 22;
+  doc.rect(MARGIN - 4, y, PAGE_WIDTH - MARGIN * 2 + 8, rectH).fill(BRAND_TEAL);
   doc
     .fillColor("white")
     .fontSize(11)
     .font("Helvetica-Bold")
-    .text(text, MARGIN, doc.y - 15);
-  doc.fillColor(TEXT_DARK).moveDown(0.6);
+    .text(text, MARGIN, y + 5, { width: PAGE_WIDTH - MARGIN * 2, lineBreak: false });
+  doc.y = y + rectH + 8;
+  doc.fillColor(TEXT_DARK);
 }
+
+const KV_LABEL_W = 130;
 
 function kv(
   doc: PDFKit.PDFDocument,
@@ -90,14 +95,18 @@ function kv(
   value: string,
   color: string = TEXT_DARK,
 ): void {
+  const y = doc.y;
   doc
     .font("Helvetica-Bold")
     .fontSize(9)
     .fillColor(TEXT_MUTED)
-    .text(key + ":", { continued: true })
+    .text(key + ":", MARGIN, y, { width: KV_LABEL_W, lineBreak: false });
+  doc
     .font("Helvetica")
     .fillColor(color)
-    .text("  " + value);
+    .text(value, MARGIN + KV_LABEL_W, y, {
+      width: PAGE_WIDTH - MARGIN * 2 - KV_LABEL_W,
+    });
 }
 
 function divider(doc: PDFKit.PDFDocument): void {
@@ -110,42 +119,58 @@ function divider(doc: PDFKit.PDFDocument): void {
   doc.moveDown(0.6);
 }
 
+const NAME_COL_W  = 165;
+// right boundary minus left margin minus name col minus gap
+const COUNT_COL_W = 75;
+const BAR_X       = MARGIN + NAME_COL_W + 8;                         // 223
+const BAR_MAX     = PAGE_WIDTH - MARGIN - BAR_X - COUNT_COL_W - 6;  // 595-50-223-75-6 = 241
+
 function candidateRow(
   doc: PDFKit.PDFDocument,
   candidate: Candidate,
   total: bigint,
 ): void {
-  const count  = Number(candidate.voteCount);
-  const pct    = total > 0n ? ((count / Number(total)) * 100).toFixed(1) : "0.0";
-  const barMax = PAGE_WIDTH - MARGIN * 2 - 180;
-  const barW   = total > 0n ? Math.round((count / Number(total)) * barMax) : 0;
+  const count = Number(candidate.voteCount);
+  const pct   = total > 0n ? ((count / Number(total)) * 100).toFixed(1) : "0.0";
+  const barW  = total > 0n ? Math.max(0, Math.round((count / Number(total)) * BAR_MAX)) : 0;
 
   const y = doc.y;
+
+  // Candidate name + party
   doc
     .font("Helvetica-Bold")
     .fontSize(9)
     .fillColor(TEXT_DARK)
-    .text(`Nº ${candidate.number}  ${candidate.name}`, MARGIN, y, { width: 180 });
-
+    .text(`Nº ${candidate.number}  ${candidate.name}`, MARGIN, y, {
+      width: NAME_COL_W,
+      lineBreak: false,
+    });
   doc
     .font("Helvetica")
     .fillColor(TEXT_MUTED)
-    .text(candidate.party, MARGIN, y + 11, { width: 180 });
+    .text(candidate.party, MARGIN, y + 12, { width: NAME_COL_W, lineBreak: false });
 
-  // bar
-  const barX = MARGIN + 190;
+  // Bar: filled background + teal fill
+  const barY = y + 5;
+  doc.rect(BAR_X, barY, BAR_MAX, 8).fillColor("#e5e7eb").fill();
   if (barW > 0) {
-    doc.rect(barX, y + 2, barW, 8).fill(BRAND_TEAL);
+    doc.rect(BAR_X, barY, barW, 8).fillColor(BRAND_TEAL).fill();
   }
-  doc.rect(barX, y + 2, barMax, 8).stroke();
 
+  // Vote count — right of bar
+  const countX = BAR_X + BAR_MAX + 6;
   doc
     .fillColor(TEXT_DARK)
     .font("Helvetica-Bold")
     .fontSize(9)
-    .text(`${count} votos  (${pct}%)`, barX + barMax + 6, y + 2);
+    .text(`${count} votos`, countX, y, { width: COUNT_COL_W, lineBreak: false });
+  doc
+    .font("Helvetica")
+    .fontSize(8)
+    .fillColor(TEXT_MUTED)
+    .text(`(${pct}%)`, countX, y + 12, { width: COUNT_COL_W, lineBreak: false });
 
-  doc.y = y + 28;
+  doc.y = y + 30;
 }
 
 function specialRow(
@@ -197,24 +222,23 @@ function raceSection(
 
 function integrity(doc: PDFKit.PDFDocument, hash: string): void {
   doc.moveDown(1);
-  doc
-    .rect(MARGIN - 4, doc.y, PAGE_WIDTH - MARGIN * 2 + 8, 36)
-    .fill(LIGHT_GRAY);
+  const y = doc.y;
+  const rectH = 42;
+  doc.rect(MARGIN - 4, y, PAGE_WIDTH - MARGIN * 2 + 8, rectH).fill(LIGHT_GRAY);
   doc
     .fillColor(TEXT_MUTED)
     .font("Helvetica")
     .fontSize(8)
-    .text(
-      "Integridade: SHA-256 deste documento",
-      MARGIN,
-      doc.y - 28,
-    );
+    .text("Integridade: SHA-256 deste documento", MARGIN, y + 6, {
+      width: PAGE_WIDTH - MARGIN * 2,
+      lineBreak: false,
+    });
   doc
     .font("Courier")
     .fontSize(7.5)
     .fillColor(TEXT_DARK)
-    .text(hash, MARGIN, doc.y - 16, { width: PAGE_WIDTH - MARGIN * 2 });
-  doc.moveDown(1.5);
+    .text(hash, MARGIN, y + 20, { width: PAGE_WIDTH - MARGIN * 2, lineBreak: false });
+  doc.y = y + rectH + 8;
 }
 
 // ── Public builders ───────────────────────────────────────────────────────────
