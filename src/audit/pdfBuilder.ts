@@ -241,6 +241,25 @@ function integrity(doc: PDFKit.PDFDocument, hash: string): void {
   doc.y = y + rectH + 8;
 }
 
+const LOCALE = "pt-BR";
+const TZ     = "America/Sao_Paulo"; // UTC-3
+
+function fmtDate(isoOrTimestamp: string | number): string {
+  const d = typeof isoOrTimestamp === "number"
+    ? new Date(isoOrTimestamp)
+    : new Date(isoOrTimestamp);
+  return d.toLocaleString(LOCALE, { timeZone: TZ });
+}
+
+function nowIso(): string {
+  // ISO string but shifted to BRT so the timestamp shown is local
+  return new Date().toLocaleString(LOCALE, { timeZone: TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).replace(",", "") + " BRT";
+}
+
 // ── Public builders ───────────────────────────────────────────────────────────
 
 /**
@@ -251,8 +270,8 @@ function integrity(doc: PDFKit.PDFDocument, hash: string): void {
  */
 export async function buildBuPdf(eventAddr: string): Promise<Buffer> {
   const bu = await readBoletimUrna(eventAddr);
-  const ts = new Date(Number(bu.blockTimestamp) * 1000).toLocaleString("pt-BR");
-  const generatedAt = new Date().toISOString();
+  const ts = fmtDate(Number(bu.blockTimestamp) * 1000);
+  const generatedAt = nowIso();
 
   // Compute hash over stable body before building PDF (we hash the JSON
   // representation of the data, not the PDF bytes, for determinism).
@@ -317,8 +336,8 @@ export async function buildReceiptPdf(
 
   // All votes cast by this nullifier (multi-race: one entry per race)
   const myVotes = logs.filter((l) => l.nullifier.toString() === nullifierStr);
-  const generatedAt = new Date().toISOString();
-  const ts = new Date(Number(bu.blockTimestamp) * 1000).toLocaleString("pt-BR");
+  const generatedAt = nowIso();
+  const ts = fmtDate(Number(bu.blockTimestamp) * 1000);
 
   const sha = createHash("sha256")
     .update(
